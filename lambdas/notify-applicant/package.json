@@ -1,0 +1,8 @@
+{
+  "name": "notify-applicant",
+  "version": "1.0.0",
+  "description": "AWS Lambda for email notification to SALCF grant/scholarship applicants",
+  "license": "ISC",
+  "author": "LAF",
+  "main": "index.js"
+}

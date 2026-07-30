@@ -1,33 +1,33 @@
-// index.js
+// lambdas/upload-application/index.js
 const { google } = require('googleapis');
+
+const auth = new google.auth.JWT(
+  process.env.GOOGLE_CLIENT_EMAIL,
+  null,
+  process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+  ['https://www.googleapis.com/auth/drive.file'],
+);
+
+const drive = google.drive({ version: 'v3', auth });
 
 exports.handler = async (event) => {
   try {
-    const body = JSON.parse(event.body || '{}');
-    const pdfBase64 = body.pdfBase64;
+    const body =
+      typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
 
-    if (!pdfBase64) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ success: false, error: 'Missing pdfBase64' }),
-      };
+    const { pdfBase64, formData } = body;
+
+    if (!pdfBase64 || !formData) {
+      return response(400, { error: 'Missing pdfBase64 or formData' });
     }
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64');
+    const orgName = formData.requestingOrganization || 'application';
+    const fileName = `${orgName}-${Date.now()}.pdf`;
 
-    const auth = new google.auth.GoogleAuth({
-      credentials: {
-        client_email: process.env.GOOGLE_CLIENT_EMAIL,
-        private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      },
-      scopes: ['https://www.googleapis.com/auth/drive.file'],
-    });
-
-    const drive = google.drive({ version: 'v3', auth });
-
-    const res = await drive.files.create({
+    const uploadRes = await drive.files.create({
       requestBody: {
-        name: `application-${Date.now()}.pdf`,
+        name: fileName,
         parents: [process.env.GOOGLE_FOLDER_ID],
       },
       media: {
@@ -36,23 +36,32 @@ exports.handler = async (event) => {
       },
     });
 
-    return {
-      statusCode: 200,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
+    const fileId = uploadRes.data.id;
+
+    await drive.permissions.create({
+      fileId,
+      requestBody: {
+        role: 'reader',
+        type: 'anyone',
       },
-      body: JSON.stringify({ success: true, fileId: res.data.id }),
-    };
+    });
+
+    const fileUrl = `https://drive.google.com/file/d/${fileId}/view`;
+
+    return response(200, { fileUrl, fileId });
   } catch (err) {
-    console.error('Upload error:', err);
-    return {
-      statusCode: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-      body: JSON.stringify({ success: false, error: err.message }),
-    };
+    console.error('upload-application error:', err);
+    return response(500, { error: 'Upload failed', details: err.message });
   }
 };
+
+function response(statusCode, body) {
+  return {
+    statusCode,
+    headers: {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*',
+    },
+    body: JSON.stringify(body),
+  };
+}

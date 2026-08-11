@@ -9,7 +9,6 @@
   "keywords": [],
   "author": "LAF",
   "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "googleapis": "^173.0.0"
   }

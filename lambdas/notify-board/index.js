@@ -1,61 +1,62 @@
 // lambdas/notify-board/index.js
-const AWS = require('aws-sdk');
-const ses = new AWS.SES({ region: 'us-west-2' });
+const { Resend } = require('resend');
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 exports.handler = async (event) => {
-  try {
-    const body =
-      typeof event.body === 'string' ? JSON.parse(event.body) : event.body;
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://salcf-grantapplications.vercel.app',
+  ];
+  const origin = event.headers.origin;
+  const allowOrigin = allowedOrigins.includes(origin)
+    ? origin
+    : allowedOrigins[0];
 
-    const { formData, fileUrl, applicationType } = body;
-
-    if (!formData || !fileUrl) {
-      return response(400, { error: 'Missing formData or fileUrl' });
-    }
-
-    const org = formData.requestingOrganization || 'Unknown organization';
-    const contact = formData.contactPerson || 'Unknown contact';
-    const email =
-      formData.contactEmail || formData.applicantEmail || 'Unknown email';
-
-    const subject = `New ${applicationType || 'grant'} Application Received`;
-    const html = `
-      <p>A new application has been submitted.</p>
-      <p><strong>Organization:</strong> ${org}</p>
-      <p><strong>Contact:</strong> ${contact}</p>
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>PDF:</strong> <a href="${fileUrl}">${fileUrl}</a></p>
-    `;
-
-    await ses
-      .sendEmail({
-        Source: process.env.SES_FROM_ADDRESS,
-        ReplyToAddresses: [email], // ⭐ board replies to applicant
-        Destination: { ToAddresses: [process.env.SES_BOARD_ADDRESS] },
-        Message: {
-          Subject: { Data: subject },
-          Body: { Html: { Data: html } },
-        },
-      })
-      .promise();
-
-    return response(200, { success: true });
-  } catch (err) {
-    console.error('notify-board error:', err);
-    return response(500, {
-      error: 'Email to board failed',
-      details: err.message,
-    });
+  // Handle CORS preflight
+  if (event.requestContext?.http?.method === 'OPTIONS') {
+    return {
+      statusCode: 200,
+      headers: {
+        'Access-Control-Allow-Origin': allowOrigin,
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST',
+      },
+      body: '',
+    };
   }
-};
 
-function response(statusCode, body) {
+  const {
+    formData,
+    fileUrl,
+    recipient,
+    applicant,
+    whoToContact,
+    applicationType,
+  } = JSON.parse(event.body);
+  const boardemail = process.env.BOARD_EMAIL;
+  const isGrant = applicationType === 'grant';
+
+  await resend.emails.send({
+    from: 'Contact Form <contact@luis-flores.net>',
+    to: boardemail,
+    reply_to: recipient,
+    subject: `New ${applicationType} application received`,
+    html: `
+      ${isGrant ? `<p>Organization: ${applicant}</p>` : ''}
+      <p>Contact: ${whoToContact} (${recipient})</p>
+      <p>Application Type: ${applicationType}</p>
+      <p>PDF: <a href="${fileUrl}">View Application</a></p>
+    `,
+  });
+
   return {
-    statusCode,
+    statusCode: 200,
     headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Origin': allowOrigin,
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'OPTIONS,POST',
     },
-    body: JSON.stringify(body),
+    body: JSON.stringify({ success: true }),
   };
-}
+};

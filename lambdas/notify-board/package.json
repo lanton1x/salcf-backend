@@ -4,5 +4,8 @@
   "description": "AWS Lambda for email notification to SALCF Board about a grant/scholarship application received",
   "main": "index.js",
   "author": "LAF",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "resend": "^6.18.1"
+  }
 }

@@ -1,18 +1,24 @@
-const AWS = require('aws-sdk');
-const s3 = new AWS.S3();
+const { S3Client, GetObjectCommand } = require('@aws-sdk/client-s3');
+
+const s3 = new S3Client({});
 
 exports.handler = async (event) => {
   const allowedOrigins = [
     'http://localhost:5173',
     'https://salcf-grantapplications.vercel.app',
   ];
-  const origin = event.headers.origin;
+
+  const headers = event.headers || {};
+  const origin = headers.origin || headers.Origin || allowedOrigins[0];
   const allowOrigin = allowedOrigins.includes(origin)
     ? origin
     : allowedOrigins[0];
 
-  // Handle CORS preflight
-  if (event.requestContext?.http?.method === 'OPTIONS') {
+  const method =
+    event.requestContext?.http?.method || headers['x-http-method'] || 'POST';
+
+  // Preflight
+  if (method === 'OPTIONS') {
     return {
       statusCode: 200,
       headers: {
@@ -25,23 +31,23 @@ exports.handler = async (event) => {
   }
 
   try {
-    const { templateName } = JSON.parse(event.body);
+    const { templateName } = JSON.parse(event.body || '{}');
 
     const params = {
       Bucket: process.env.S3_BUCKET,
       Key: `templates/${templateName}.md`,
     };
 
-    const file = await s3.getObject(params).promise();
-    const markdown = file.Body.toString('utf-8');
+    const file = await s3.send(new GetObjectCommand(params));
+    const markdown = await streamToString(file.Body);
 
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': 'text/plain',
         'Access-Control-Allow-Origin': allowOrigin,
         'Access-Control-Allow-Headers': 'Content-Type',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'OPTIONS,POST',
+        'Content-Type': 'text/plain',
       },
       body: markdown,
     };
@@ -51,8 +57,8 @@ exports.handler = async (event) => {
     return {
       statusCode: 500,
       headers: {
-        'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': allowOrigin,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         error: 'Failed to load template',
@@ -61,3 +67,12 @@ exports.handler = async (event) => {
     };
   }
 };
+
+async function streamToString(stream) {
+  const chunks = [];
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return Buffer.concat(chunks).toString('utf-8');
+}

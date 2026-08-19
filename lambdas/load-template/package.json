@@ -1,0 +1,11 @@
+{
+  "name": "load-template",
+  "version": "1.0.0",
+  "description": "AWS Lambda for loading templates from S3",
+  "main": "index.js",
+  "author": "LAF",
+  "license": "ISC",
+  "dependencies": {
+    "aws-sdk": "^2.1693.0"
+  }
+}

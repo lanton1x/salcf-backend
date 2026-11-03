@@ -1,45 +1,4 @@
-const { google } = require('googleapis');
-const { SSMClient, GetParameterCommand } = require('@aws-sdk/client-ssm');
-
-const ssm = new SSMClient();
-
-// Cache Google Drive client across warm invocations
-let driveClient = null;
-
-async function getDriveClient() {
-  if (driveClient) return driveClient;
-
-  const res = await ssm.send(
-    new GetParameterCommand({
-      Name: process.env.GOOGLE_PRIVATE_KEY_PARAM,
-      WithDecryption: true,
-    }),
-  );
-
-  let privateKey = res.Parameter.Value;
-
-  // Clean formatting for private key
-  if (privateKey.startsWith('"') && privateKey.endsWith('"')) {
-    privateKey = privateKey.slice(1, -1);
-  }
-
-  privateKey = privateKey.replace(/\\n/g, '\n');
-
-  const auth = new google.auth.JWT({
-    email: process.env.GOOGLE_CLIENT_EMAIL,
-    key: privateKey,
-    scopes: ['https://www.googleapis.com/auth/drive.readonly'],
-  });
-
-  await auth.authorize();
-
-  driveClient = google.drive({
-    version: 'v3',
-    auth,
-  });
-
-  return driveClient;
-}
+const { getDriveClient } = require('../shared/google-drive');
 
 exports.handler = async (event) => {
   const allowedOrigins = [

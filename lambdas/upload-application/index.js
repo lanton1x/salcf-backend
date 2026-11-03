@@ -92,8 +92,19 @@ exports.handler = async (event) => {
     }
 
     const pdfBuffer = Buffer.from(pdfBase64, 'base64');
-    const orgName = formData.requestingOrganization || 'application';
-    const fileName = `${orgName}-${Date.now()}.pdf`;
+
+    const applicant = formData.requestingOrganization
+      ? formData.requestingOrganization
+      : formData.applicantName;
+
+    const applicationKind = formData.requestingOrganization
+      ? 'Grant Application'
+      : 'Scholarship Application';
+
+    const safeApplicant = applicant.replace(/[^a-z0-9]/gi, '_');
+    const safeKind = applicationKind.replace(/[^a-z0-9]/gi, '_');
+
+    const fileName = `${safeApplicant}-${safeKind}-${Date.now()}.pdf`;
 
     const uploadRes = await drive.files.create({
       requestBody: {

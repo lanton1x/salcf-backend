@@ -1,11 +1,14 @@
 {
   "name": "load-template",
   "version": "1.0.0",
-  "description": "AWS Lambda for loading templates from S3",
-  "main": "index.js",
-  "author": "LAF",
+  "description": "Lambda function to fetch template from Google Drive at launch time",
   "license": "ISC",
+  "author": "Luis Flores",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
   "dependencies": {
-    "aws-sdk": "^2.1693.0"
+    "googleapis": "^173.0.0"
   }
 }

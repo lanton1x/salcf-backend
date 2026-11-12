@@ -1,5 +1,5 @@
 // lambdas/upload-application/index.js
-const { getDriveClient } = require('../shared/google-drive');
+const { getDriveClient } = require('./google-drive');
 const { Readable } = require('stream');
 
 function bufferToStream(buffer) {

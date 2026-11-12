@@ -1,7 +1,7 @@
 {
   "name": "load-template",
   "version": "1.0.0",
-  "description": "Lambda function to fetch template from Google Drive at launch time",
+  "description": "Lambda function to fetch site resources from Google Drive at launch time",
   "license": "ISC",
   "author": "Luis Flores",
   "main": "index.js",
